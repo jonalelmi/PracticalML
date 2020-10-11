@@ -1,0 +1,98 @@
+---
+title: "Practical ML"
+output: html_document
+---
+
+# Introduction
+
+In this project we build a prediction model fot how well a weight lifting exercise is executed. To this end, we use the data available at [http://groupware.les.inf.puc-rio.br/har](http://groupware.les.inf.puc-rio.br/har) (see the section on the Weight Lifting Exercise Dataset). The dataset contains samples of executed exercises from a group of 5 people, who were requested to perform the exercise in 5 different ways: one was the correct one, and the other four corresponded to performing the exercise with one of the most frequent errors.
+
+## Data
+
+For our project, we use the following datasets:
+
+- Training set [https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv]
+- Test set [https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv]
+
+The data are loaded as follows into R.
+
+```{r}
+train <- read.csv('pml-training.csv', na.strings=c("NA","#DIV/0!", ""))
+test <- read.csv('pml-testing.csv', na.strings=c("NA","#DIV/0!", ""))
+```
+
+A quick glance at the data in the training set makes it evident that there are a bunch of variables which are just NAs, we thus delete them.
+
+```{r}
+ columns_to_select <- colSums(is.na(train)) == 0
+train <- train[,columns_to_select]
+test <- test[, columns_to_select]
+
+train <- train[,-c(1:7)]
+test <- test[, -c(1:7)]
+```
+
+## Explanation of the analysis
+
+There are five different types of execution for the exercise: the correct one (classe A), and four incorrect ones, corresponding to four different errors in the execution (classe B, C, D, E). We tackle the problem with two possible approaches: random forest and decision tree. 
+
+### Cross Validation
+
+To pick the best prediction model we will make use of cross validation. To this end, we split the training set randomly and without replacements into a training set, on which the model is fitted, and a test set, on which we will make the choice of the best model. The code for this splitting is as follows.
+
+```{r}
+library(caret)
+library(ggplot2)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+trainIN <- createDataPartition(y=train$classe, p=0.7, list=FALSE)
+train_training <- train[trainIN,]
+train_testing <- train[-trainIN,]
+```
+
+### Model 1: Decision Tree
+
+The first model is a decision tree.
+
+```{r}
+m1 <- rpart(classe ~ ., data=train_training, method="class")
+
+prediction1 <- predict(m1, train_testing, type = "class")
+
+rpart.plot(m1, main="Classification Tree", extra=102, under=TRUE, faclen=0)
+```
+
+Let us look at the confusion matrix on the test part of the training set.
+
+```{r}
+confusionMatrix(prediction1, factor(train_testing$classe))
+```
+
+## Model 2: Random Forest
+
+The second model is a random forest.
+
+```{r}
+train_training$classe <- factor(train_training$classe)
+m2 <- randomForest(classe ~. , data=train_training, method="class")
+
+prediction2 <- predict(m2, train_testing, type = "class")
+
+confusionMatrix(prediction2, factor(train_testing$classe))
+```
+
+## Model selection
+
+Based on the accuracy of the two models tested on the validation set, we pick the random forest model.
+
+## Final submission
+
+Using the random forest model we obtain the following prediction.
+
+
+```{r}
+predictfinal <- predict(m2, test, type="class")
+predictfinal
+```
+
